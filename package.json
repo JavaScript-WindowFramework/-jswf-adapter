@@ -12,10 +12,21 @@
   "publishConfig": {
     "access": "public"
   },
-  "keywords": ["ajax"],
+  "keywords": [
+    "ajax"
+  ],
   "author": "SoraKumo",
   "license": "MIT",
   "devDependencies": {
     "typescript": "~3.6.3"
-  }
+  },
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/JavaScript-WindowFramework/-jswf-adapter.git"
+  },
+  "bugs": {
+    "url": "https://github.com/JavaScript-WindowFramework/-jswf-adapter/issues"
+  },
+  "homepage": "https://ttis.croud.jp/"
 }
