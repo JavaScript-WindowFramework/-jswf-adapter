@@ -1,8 +1,8 @@
-name: publish-devel
+name: publish-master
 on:
   push:
     branches:
-      - devel
+      - master
     tags:
       - "!*"
 jobs:
@@ -27,4 +27,4 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
-          npm publish --tag=devel
+          npm publish
