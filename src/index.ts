@@ -1,3 +1,5 @@
+import axios, { Method } from "axios";
+
 interface FunctionData {
   name: string;
   params: unknown[];
@@ -16,6 +18,12 @@ interface AdapterFormat {
     function: string; //命令
     params: unknown[]; //パラメータ
   }[];
+}
+interface AdapterResultFormat
+{
+  globalHash: string;
+  sessionHash: string;
+  results: AdapterResult[];
 }
 
 export interface AdapterResult {
@@ -201,11 +209,7 @@ export class Adapter {
       params,
       undefined,
       binary
-    )) as {
-      globalHash: string;
-      sessionHash: string;
-      results: AdapterResult[];
-    } | null;
+    )) as AdapterResultFormat | null;
 
     if (res === null) {
       for (let funcs of functionSet) {
@@ -265,17 +269,18 @@ export class Adapter {
    */
   public static sendJsonAsync(
     url: string,
-    data?: unknown,
+    data?: object,
     headers?: { [key: string]: string },
     binary?: boolean
   ): Promise<unknown> {
-    return new Promise((resolve): void => {
+    return new Promise((resolve, reject): void => {
       if (binary) {
         Adapter.sendJsonToBinary(
           url,
           data,
-          (value: unknown): void => {
-            resolve(value);
+          (value, status): void => {
+            if (status === 200) resolve(value);
+            else reject({ value, status });
           },
           headers
         );
@@ -283,8 +288,9 @@ export class Adapter {
         Adapter.sendJson(
           url,
           data,
-          (value: unknown): void => {
-            resolve(value);
+          (value, status): void => {
+            if (status === 200) resolve(value);
+            else reject({ value, status });
           },
           headers
         );
@@ -306,48 +312,16 @@ export class Adapter {
    */
   private static sendJson(
     url: string,
-    data: unknown,
-    proc: Function,
+    data: object | undefined,
+    proc: (value: unknown, status: number) => void,
     headers?: { [key: string]: string }
   ): void {
-    const req = new XMLHttpRequest();
-
-    //ネイティブでJSON変換が可能かチェック
-    var jsonFlag = false;
-    try {
-      req.responseType = "json";
-    } catch (e) {
-      jsonFlag = true;
-    }
-    if (proc == null) {
-      req.open("POST", url, false);
-      return JSON.parse(req.responseText);
-    } else {
-      req.onreadystatechange = function(): void {
-        if (req.readyState == 4) {
-          var obj = null;
-          try {
-            if (jsonFlag)
-              //JSON変換の仕分け
-              obj = JSON.parse(req.response);
-            else obj = req.response;
-          } catch (e) {
-            proc(null);
-            return;
-          }
-          proc(obj);
-        }
-      };
-    }
-    req.open("POST", url, true);
-    req.setRequestHeader("Content-Type", "application/json");
-    if (headers) {
-      for (let index in headers) {
-        const value = sessionStorage.getItem(headers[index]);
-        if (value) req.setRequestHeader(index, value);
-      }
-    }
-    req.send(data == null ? null : JSON.stringify(data));
+    axios({
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      data: JSON.stringify(data),
+      url
+    }).then(res => proc(res.data, res.status));
   }
 
   /**
@@ -364,31 +338,17 @@ export class Adapter {
    */
   private static sendJsonToBinary(
     url: string,
-    data: unknown,
-    proc: Function,
+    data: object | undefined,
+    proc: (value: unknown, status: number) => void,
     headers?: { [key: string]: string }
   ): void {
-    const req = new XMLHttpRequest();
-    req.responseType = "blob";
-    if (proc == null) {
-      req.open("POST", url, false);
-      return JSON.parse(req.responseText);
-    } else {
-      req.onreadystatechange = function(): void {
-        if (req.readyState == 4) {
-          proc(req.response);
-        }
-      };
-    }
-    req.open("POST", url, true);
-    req.setRequestHeader("Content-Type", "application/json");
-    if (headers) {
-      for (let index in headers) {
-        const value = sessionStorage.getItem(headers[index]);
-        if (value) req.setRequestHeader(index, value);
-      }
-    }
-    req.send(data == null ? null : JSON.stringify(data));
+    axios({
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      data: JSON.stringify(data),
+      responseType: "arraybuffer",
+      url
+    }).then(res => proc(res.data, res.status));
   }
 
   /**
@@ -416,11 +376,7 @@ export class Adapter {
           }
         ]
       };
-      const proc = (res: {
-        globalHash: string;
-        sessionHash: string;
-        results: AdapterResult[];
-      }) => {
+      const proc = (res: AdapterResultFormat) => {
         if (res == null) {
           // eslint-disable-next-line no-console
           console.error("通信エラー");
@@ -460,8 +416,12 @@ export class Adapter {
   public static sendFile(
     url: string,
     buffer: Blob,
-    proc: (result: never) => void,
-    params: { [key: string]: string | number }
+    proc: (
+      result: AdapterResultFormat,
+      status: number
+    ) => void,
+    params: { [key: string]: string | number },
+    headers?: { [key: string]: string }
   ) {
     //GETパラメータの構築
     let urlParam = "";
@@ -474,22 +434,12 @@ export class Adapter {
       url += url.indexOf("?") >= 0 ? "&" : "?";
       url += urlParam;
     }
-    //データ送信
-    const req = new XMLHttpRequest();
-    try {
-      req.open("POST", url, true);
-      req.setRequestHeader("Content-Type", "application/octet-stream");
-      req.send(buffer);
-    } catch (e) {
-      alert(e);
-      return null;
-    }
-    req.onreadystatechange = () => {
-      if (req.readyState == 4) {
-        proc(JSON.parse(req.response) as never);
-      }
-    };
-
-    return req;
+    axios({
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/octet-stream" },
+      data: buffer,
+      responseType: "arraybuffer",
+      url
+    }).then(res => proc(res.data, res.status));
   }
 }
