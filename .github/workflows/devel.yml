@@ -25,4 +25,4 @@ jobs:
       - name: release
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --tag=devel
+        run: npm publish --@jswf:registry=https://registry.npmjs.org/ --tag=devel

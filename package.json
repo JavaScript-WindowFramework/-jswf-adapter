@@ -1,6 +1,6 @@
 {
   "name": "@jswf/adapter",
-  "version": "0.1.01-devel",
+  "version": "0.1.1-devel",
   "description": "Ajax Adapter",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
