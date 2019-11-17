@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import * as fs from "fs";
+const fs = require("fs");
 try {
   const prefix = process.argv[2] ? process.argv[2] : "";
   if (prefix) {
@@ -7,10 +7,14 @@ try {
     const package = JSON.parse(fs.readFileSync(fileName).toString());
     fs.writeFileSync(
       fileName,
-      JSON.stringify({ ...package, name: package.name + prefix })
+      JSON.stringify(
+        { ...package, name: package.name + prefix },
+        undefined,
+        "  "
+      )
     );
   }
-} catch(e) {
+} catch (e) {
   console.error(e);
   process.exit(-1);
 }

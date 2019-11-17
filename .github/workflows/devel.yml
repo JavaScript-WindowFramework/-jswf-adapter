@@ -20,7 +20,7 @@ jobs:
             xbrowser-yarn-
       - name: Fix package name
         run: |
-          node .github/bin/package_name.js devel
+          node .github/bin/package_name.js -devel
           cat package.json
       # - name: install
       #   run: yarn install
