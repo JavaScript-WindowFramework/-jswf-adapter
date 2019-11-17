@@ -8,7 +8,7 @@ try {
     fs.writeFileSync(
       fileName,
       JSON.stringify(
-        { ...package, name: package.name + prefix },
+        { ...package, version: package.version + prefix },
         undefined,
         "  "
       )

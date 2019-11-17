@@ -18,9 +18,9 @@ jobs:
           key: xbrowser-yarn-${{ hashFiles('**\yarn.lock') }}
           restore-keys: |
             xbrowser-yarn-
-      - name: Fix package name
+      - name: Fix version name
         run: |
-          node .github/bin/package_name.js -devel
+          node .github/bin/fix_version.js -devel
           cat package.json
       # - name: install
       #   run: yarn install
