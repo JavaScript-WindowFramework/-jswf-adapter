@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import * as fs from "fs";
 try {
   const prefix = process.argv[2] ? process.argv[2] : "";
   if (prefix) {
@@ -9,6 +10,7 @@ try {
       JSON.stringify({ ...package, name: package.name + prefix })
     );
   }
-} catch {
-  console.error("Can't access package.json");
+} catch(e) {
+  console.error(e);
+  process.exit(-1);
 }
