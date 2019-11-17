@@ -3,8 +3,6 @@ on:
   push:
     branches:
       - devel
-    tags:
-      - "!*"
 jobs:
   release:
     name: check version, add tag and release
