@@ -19,8 +19,7 @@ interface AdapterFormat {
     params: unknown[]; //パラメータ
   }[];
 }
-interface AdapterResultFormat
-{
+interface AdapterResultFormat {
   globalHash: string;
   sessionHash: string;
   results: AdapterResult[];
@@ -31,18 +30,24 @@ export interface AdapterResult {
   error: string | null;
 }
 
+var localStorage: Storage;
+var sessionStorage: Storage;
+
 /**
  *Ajax通信用アダプタ
  *
  * @export
  * @class Adapter
  */
-export class Adapter {
+export class Adapter<T extends { [key: string]: any } = {}> {
   private handle: number | null;
   private scriptUrl: string;
   private keyName: string;
   private functionSet: FunctionSet[] = [];
-
+  private globalHash = localStorage ? localStorage.getItem(this.keyName) : null;
+  private sessionHash = sessionStorage
+    ? sessionStorage.getItem(this.keyName)
+    : null;
   /**
    *Creates an instance of Adapter.
    * @param {string} [scriptUrl] 通信先アドレス
@@ -111,6 +116,18 @@ export class Adapter {
     return promise as Promise<never>;
   }
 
+  public exec<K extends keyof T | string>(
+    name: K,
+    ...params: K extends keyof T
+      ? T[K] extends (...args: infer P) => ReturnType<T[K]>
+        ? P
+        : unknown[]
+      : unknown[]
+  ): K extends keyof T
+    ? ReturnType<T[K]> extends Promise<never>
+      ? ReturnType<T[K]>
+      : Promise<ReturnType<T[K]>>
+    : Promise<never>;
   /**
    *複数のファンクションの実行
    *
@@ -127,10 +144,14 @@ export class Adapter {
    * @returns {Promise<any>}
    * @memberof Adapter
    */
+
   // eslint-disable-next-line no-dupe-class-members
   public exec(funcName: string, ...params: unknown[]): Promise<never>;
   // eslint-disable-next-line no-dupe-class-members
-  public exec(v1: FunctionData[][] | string, ...v2: unknown[]): Promise<never> {
+  public exec(
+    v1: FunctionData[][] | string,
+    ...v2: unknown[]
+  ): Promise<never | unknown> {
     let functionSet: FunctionSet;
     if (Array.isArray(v1)) {
       const functions: FunctionData[] = [];
@@ -170,7 +191,7 @@ export class Adapter {
    */
   private callSend(): void {
     if (!this.handle) {
-      this.handle = window.setTimeout((): void => {
+      this.handle = setTimeout((): void => {
         this.handle = null;
         this.send(this.functionSet);
       }, 0);
@@ -187,8 +208,8 @@ export class Adapter {
    * @memberof Adapter
    */
   private async send(functionSet: FunctionSet[], binary?: boolean) {
-    const globalHash = localStorage.getItem(this.keyName);
-    const sessionHash = sessionStorage.getItem(this.keyName);
+    const globalHash = this.globalHash;
+    const sessionHash = this.sessionHash;
     const params: AdapterFormat = {
       globalHash: globalHash,
       sessionHash: sessionHash,
@@ -204,98 +225,66 @@ export class Adapter {
         });
     }
 
-    const res = (await Adapter.sendJsonAsync(
+    const res = await Adapter.sendJson(
       this.scriptUrl + "?cmd=exec",
       params,
       undefined,
       binary
-    )) as AdapterResultFormat | null;
-
-    if (res === null) {
-      for (let funcs of functionSet) {
-        // eslint-disable-next-line no-console
-        console.error("通信エラー");
-        funcs.promise.reject("通信エラー");
-      }
-      return;
-    }
-    //バイナリデータはそのまま返却
-    if (binary) {
-      for (let funcs of functionSet) {
-        funcs.promise.resolve(res);
-      }
-      return;
-    }
-    //セッションキーの更新
-    if (res.globalHash) localStorage.setItem(this.keyName, res.globalHash);
-    if (res.sessionHash) sessionStorage.setItem(this.keyName, res.sessionHash);
-
-    const results = res.results;
-    let index = 0;
-    for (let funcs of functionSet) {
-      const length = funcs.functions.length;
-      if (funcs.array) {
-        const values = [];
-        for (let i = index; i < length; i++) {
-          if (results[i].error) {
-            // eslint-disable-next-line no-console
-            console.error(results[i].error);
-            funcs.promise.reject(results[i].error);
-            break;
-          }
-          values.push(results[i].value);
+    )
+      .catch(e => {
+        console.error(e);
+        for (let funcs of functionSet) {
+          funcs.promise.reject("通信エラー");
         }
-        funcs.promise.resolve(values);
-      } else {
-        const result = results[index];
-        // eslint-disable-next-line no-console
-        if (result.error) console.error(result.error);
-        else funcs.promise.resolve(result.value);
-      }
-      index += length;
-    }
-  }
+      })
+      .then(v => {
+        if (!v) return;
 
-  /**
-   *Jsonデータ送受信とPromise化
-   *
-   * @static
-   * @param {string} url
-   * @param {unknown} [data]
-   * @param {{ [key: string]: string }} [headers]
-   * @param {boolean} [binary]
-   * @returns {Promise<unknown>}
-   * @memberof Adapter
-   */
-  public static sendJsonAsync(
-    url: string,
-    data?: object,
-    headers?: { [key: string]: string },
-    binary?: boolean
-  ): Promise<unknown> {
-    return new Promise((resolve, reject): void => {
-      if (binary) {
-        Adapter.sendJsonToBinary(
-          url,
-          data,
-          (value, status): void => {
-            if (status === 200) resolve(value);
-            else reject({ value, status });
-          },
-          headers
-        );
-      } else {
-        Adapter.sendJson(
-          url,
-          data,
-          (value, status): void => {
-            if (status === 200) resolve(value);
-            else reject({ value, status });
-          },
-          headers
-        );
-      }
-    });
+        const res = v.data as AdapterResultFormat;
+
+        //バイナリデータはそのまま返却
+        if (binary) {
+          for (let funcs of functionSet) {
+            funcs.promise.resolve(res);
+          }
+          return;
+        }
+        //セッションキーの更新
+        if (res.globalHash) {
+          localStorage && localStorage.setItem(this.keyName, res.globalHash);
+          this.globalHash = res.globalHash;
+        }
+        if (res.sessionHash) {
+          sessionStorage &&
+            sessionStorage.setItem(this.keyName, res.sessionHash);
+          this.sessionHash = res.sessionHash;
+        }
+
+        const results = res.results;
+        let index = 0;
+        for (let funcs of functionSet) {
+          const length = funcs.functions.length;
+          if (funcs.array) {
+            const values = [];
+            for (let i = index; i < length; i++) {
+              if (results[i].error) {
+                // eslint-disable-next-line no-console
+                console.error(results[i].error);
+                funcs.promise.reject(results[i].error);
+                break;
+              }
+              values.push(results[i].value);
+            }
+            funcs.promise.resolve(values);
+          } else {
+            const result = results[index];
+            // eslint-disable-next-line no-console
+            if (result.error) funcs.promise.reject(result.error);
+            else funcs.promise.resolve(result.value);
+          }
+          index += length;
+        }
+      });
   }
 
   /**
@@ -307,48 +296,23 @@ export class Adapter {
    * @param {unknown} data
    * @param {Function} proc
    * @param {{ [key: string]: string }} [headers]
+   * @param {boolean} [binary]
    * @returns {void}
    * @memberof Adapter
    */
   private static sendJson(
     url: string,
     data: object | undefined,
-    proc: (value: unknown, status: number) => void,
-    headers?: { [key: string]: string }
-  ): void {
-    axios({
+    headers?: { [key: string]: string },
+    binary?: boolean
+  ) {
+    return axios({
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
       data: JSON.stringify(data),
+      responseType: binary ? "arraybuffer" : "json",
       url
-    }).then(res => proc(res.data, res.status));
-  }
-
-  /**
-   *Jsonデータの送信とblobの受け取り
-   *
-   * @private
-   * @static
-   * @param {string} url
-   * @param {unknown} data
-   * @param {Function} proc
-   * @param {{ [key: string]: string }} [headers]
-   * @returns {void}
-   * @memberof Adapter
-   */
-  private static sendJsonToBinary(
-    url: string,
-    data: object | undefined,
-    proc: (value: unknown, status: number) => void,
-    headers?: { [key: string]: string }
-  ): void {
-    axios({
-      method: "POST",
-      headers: { ...headers, "Content-Type": "application/json" },
-      data: JSON.stringify(data),
-      responseType: "arraybuffer",
-      url
-    }).then(res => proc(res.data, res.status));
+    });
   }
 
   /**
@@ -364,8 +328,8 @@ export class Adapter {
   public upload(buffer: Blob, funcName: string, ...params: unknown[]) {
     return new Promise((resolve, reject) => {
       //ハッシュデータの読み出し
-      const globalHash = localStorage.getItem(this.keyName);
-      const sessionHash = sessionStorage.getItem(this.keyName);
+      const globalHash = this.globalHash;
+      const sessionHash = this.sessionHash;
       const adapterFormat: AdapterFormat = {
         globalHash: globalHash,
         sessionHash: sessionHash,
@@ -382,10 +346,15 @@ export class Adapter {
           console.error("通信エラー");
           reject("通信エラー");
         } else {
-          if (res.globalHash)
-            localStorage.setItem(this.keyName, res.globalHash);
-          if (res.sessionHash)
-            sessionStorage.setItem(this.keyName, res.sessionHash);
+          if (res.globalHash) {
+            localStorage && localStorage.setItem(this.keyName, res.globalHash);
+            this.globalHash = res.globalHash;
+          }
+          if (res.sessionHash) {
+            sessionStorage &&
+              sessionStorage.setItem(this.keyName, res.sessionHash);
+            this.sessionHash = res.sessionHash;
+          }
           if (res.results && res.results.length) {
             const result = res.results[0];
             if (result.error) reject(result.error);
@@ -416,10 +385,7 @@ export class Adapter {
   public static sendFile(
     url: string,
     buffer: Blob,
-    proc: (
-      result: AdapterResultFormat,
-      status: number
-    ) => void,
+    proc: (result: AdapterResultFormat, status: number) => void,
     params: { [key: string]: string | number },
     headers?: { [key: string]: string }
   ) {

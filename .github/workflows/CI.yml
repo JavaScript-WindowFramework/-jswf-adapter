@@ -1,10 +1,7 @@
 name: publish-devel
 on:
   push:
-    branches:
-      - devel
-    tags:
-      - "!*"
+
 jobs:
   release:
     name: check version, add tag and release
@@ -22,9 +19,18 @@ jobs:
         run: yarn install
       - name: build
         run: yarn build
-      - name: release
+      - name: publish devel
+        if: contains(github.ref, 'tags/devel')
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          node .github/bin/fix_version.js -devel
+          npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
+          npm publish --tag=devel
+      - name: publish release
+        if: contains(github.ref, 'tags/release')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
-          npm publish --tag=devel
+          npm publish
