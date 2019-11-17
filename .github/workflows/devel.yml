@@ -1,7 +1,7 @@
 name: publish-devel
 on:
   push:
-    branches:
+    tags:
       - devel
 jobs:
   release:
