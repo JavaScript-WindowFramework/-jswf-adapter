@@ -18,17 +18,15 @@ jobs:
           key: xbrowser-yarn-${{ hashFiles('**\yarn.lock') }}
           restore-keys: |
             xbrowser-yarn-
-      - name: Fix version name
+      - name: install
+        run: yarn install
+      - name: build
+        run: yarn build
+      - name: release
+        if: contains(github.ref, 'tags/npm')
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           node .github/bin/fix_version.js -devel
-          cat package.json
-      # - name: install
-      #   run: yarn install
-      # - name: build
-      #   run: yarn build
-      # - name: release
-      #   env:
-      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-      #   run: |
-      #     npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
-      #     npm publish --tag=devel
+          npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
+          npm publish --tag=devel
