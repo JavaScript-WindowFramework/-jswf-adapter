@@ -1,4 +1,4 @@
-name: publish-devel
+name: CI
 on:
   push:
 
@@ -27,8 +27,11 @@ jobs:
           node .github/bin/fix_version.js -devel
           npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
           npm publish --tag=devel
+      - uses: SoraKumo001/actions-package-version-prefix@release
+        with:
+          prefix: -devel
       - name: publish release
-        if: contains(github.ref, 'tags/release')
+        if: contains(github.ref, 'tags/v')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
