@@ -1,4 +1,4 @@
-name: publish-devel
+name: CI
 on:
   push:
 
@@ -19,16 +19,20 @@ jobs:
         run: yarn install
       - name: build
         run: yarn build
+      - name: version devel
+        uses: SoraKumo001/actions-package-version-prefix@release
+        if: contains(github.ref, 'tags/dev')
+        with:
+          prefix: -devel
       - name: publish devel
-        if: contains(github.ref, 'tags/devel')
+        if: contains(github.ref, 'tags/dev')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          node .github/bin/fix_version.js -devel
           npm config set //registry.npmjs.org/:_authToken=$NODE_AUTH_TOKEN
           npm publish --tag=devel
       - name: publish release
-        if: contains(github.ref, 'tags/release')
+        if: contains(github.ref, 'tags/v')
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
