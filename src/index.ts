@@ -121,7 +121,7 @@ export class Adapter<T extends { [key: string]: any } = {}> {
     ...params: K extends keyof T
       ? T[K] extends (...args: infer P) => ReturnType<T[K]>
         ? P
-        : unknown[]
+        : never
       : unknown[]
   ): K extends keyof T
     ? ReturnType<T[K]> extends Promise<never>
@@ -145,9 +145,6 @@ export class Adapter<T extends { [key: string]: any } = {}> {
    * @memberof Adapter
    */
 
-  // eslint-disable-next-line no-dupe-class-members
-  public exec(funcName: string, ...params: unknown[]): Promise<never>;
-  // eslint-disable-next-line no-dupe-class-members
   public exec(
     v1: FunctionData[][] | string,
     ...v2: unknown[]
