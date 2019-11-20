@@ -1,10 +1,9 @@
-# @jswf/adapter - Ajax Adapter
+# @rfcs/adapter - Ajax Adapter
 
 ## 用途
 
-[@jswf/rfs](https://www.npmjs.com/package/@jswf/rfs)と連携するための、フロントエンド用通信アダプターです  
-バックエンド側の対応が必要となるため、ドキュメントは上記を確認してください
+[@rfcs/core](https://www.npmjs.com/package/@rfcs/core)と連携するための、フロントエンド/バックエンド両用通信アダプターです
 
 ## ライセンス
 
-- MITライセンス  
+- MITライセンス
